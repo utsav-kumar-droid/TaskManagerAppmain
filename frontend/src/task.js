@@ -326,13 +326,7 @@ function Home({ tasks, allTasks, filterCategory, setFilterCategory, goAdd, goDet
     }, 1000);
     return () => clearInterval(timer);
   }, []);
-  <button
-  onClick={() => {
-    alarmRef.current.play();
-  }}
->
-  Test Alarm
-</button>
+ 
 
   const handleEnableNotifications = async () => {
     if (!("Notification" in window)) {
@@ -360,6 +354,13 @@ function Home({ tasks, allTasks, filterCategory, setFilterCategory, goAdd, goDet
       });
     }
   };
+   <button
+  onClick={() => {
+    alarmRef.current.play();
+  }}
+>
+  Test Alarm
+</button>
   
   const completedCount = allTasks.filter((task) => task.done).length;
   const categories = ["Work", "Study", "Personal", "Health", "Exercise", "Creative"];
