@@ -2,13 +2,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import axios from "axios";
-const API_BASE = process.env.API_BASE || "https://taskappmanager.onrender.com";
 
+const API_BASE = process.env.API_BASE || "https://taskappmanager.onrender.com";
 console.log("API_BASE:", API_BASE);
 
-// A built-in, lightweight electronic beep sound (Base64 string)
-// This eliminates the need for an external /alarm.mp3 file entirely!
-const ALARM_SOUND_SRC = "data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YT1vT19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18=";
+// Downloaded local audio file inside your public folder 
+const ALARM_SOUND_SRC = "./alarm.mp3"; 
 
 function App() {
   const [tasks, setTasks] = useState([]);
@@ -19,36 +18,38 @@ function App() {
   const [alarmedTasks, setAlarmedTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-//   if (loading) {
-//   return <h2>Loading...</h2>;
-// }
-  
-  // Initialize with our built-in fail-safe audio track
-  const alarmRef = useRef(new Audio(ALARM_SOUND_SRC));
+  // Initialize with your downloaded audio file path
+const alarmRef = useRef(null);
 
-useEffect(() => {
-  const fetchTasks = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/tasks`);
-
-      if (Array.isArray(res.data)) {
-        setTasks(res.data);
-      } else {
-        console.error("Invalid tasks response:", res.data);
+  // 1. Initial Fetch
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/tasks`);
+        if (Array.isArray(res.data)) {
+          setTasks(res.data);
+        } else {
+          console.error("Invalid tasks response:", res.data);
+          setTasks([]);
+        }
+      } catch (error) {
+        console.error("Cannot connect to backend:", error);
         setTasks([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Cannot connect to backend:", error);
-      setTasks([]);
-    } finally {
-      setLoading(false);
+    };
+    fetchTasks();
+  }, []);
+
+  // 2. Configure looping so it plays continuously until user clicks "OK"
+  useEffect(() => {
+    if (alarmRef.current) {
+      alarmRef.current.loop = true;
     }
-  };
+  }, []);
 
-  fetchTasks();
-}, []);
-
-  // 1. Bulletproof Audio Unlocker
+  // 3. Audio Unlocker for Fallback Click Interaction
   useEffect(() => {
     const unlockAudio = () => {
       if (alarmRef.current) {
@@ -67,6 +68,72 @@ useEffect(() => {
     return () => document.removeEventListener("click", unlockAudio);
   }, []);
 
+  // 4. Pure, Stable Background Timer Loop with Thread-Safe Side Effects
+ useEffect(() => {
+  const timer = setInterval(() => {
+    const now = new Date();
+
+    tasks.forEach((task) => {
+      if (
+        !task.date ||
+        !task.endTime ||
+        task.done ||
+        alarmedTasks.includes(task.id)
+      ) {
+        return;
+      }
+
+      const target = new Date(
+        `${task.date}T${
+          task.endTime.length === 5
+            ? task.endTime + ":00"
+            : task.endTime
+        }`
+      );
+
+      if (isNaN(target)) return;
+
+      if (now >= target) {
+        setAlarmedTasks((prev) => [...prev, task.id]);
+
+        if (alarmRef.current) {
+          alarmRef.current.currentTime = 0;
+
+          alarmRef.current
+            .play()
+            .then(() => console.log("Alarm started"))
+            .catch((err) =>
+              console.error("Audio blocked:", err)
+            );
+        }
+
+        if (
+          "Notification" in window &&
+          Notification.permission === "granted"
+        ) {
+          new Notification("⏰ Task Finished", {
+            body: task.title,
+          });
+        }
+
+        // React modal preferred
+        setTimeout(() => {
+          const stop = window.confirm(
+            `⏰ ${task.title} completed.\n\nPress OK to stop alarm.`
+          );
+
+          if (stop && alarmRef.current) {
+            alarmRef.current.pause();
+            alarmRef.current.currentTime = 0;
+          }
+        }, 100);
+      }
+    });
+  }, 1000);
+
+  return () => clearInterval(timer);
+}, [tasks, alarmedTasks]);
+
   const saveTask = (task) => {
     if (editTask) {
       axios.put(`${API_BASE}/tasks/${task.id}`, task).then((res) => {
@@ -81,76 +148,6 @@ useEffect(() => {
       });
     }
   };
-
-  // 2. Fixed, Stable Background Timer Interval Loop
-  // 2. Fixed, Stable Background Timer Interval Loop
-// 1. Check and request notification permissions on mount
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  // 2. Fixed, Stable Background Timer Interval Loop
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-
-      tasks.forEach((task) => {
-        if (!task.endTime || !task.date || task.done) return;
-
-        const formattedTime =
-          task.endTime.split(":").length === 2
-            ? `${task.endTime}:00`
-            : task.endTime;
-        const endDateTime = new Date(`${task.date}T${formattedTime}`);
-
-        if (isNaN(endDateTime.getTime())) return;
-
-        // Check if current time has passed the end target time
-        if (now >= endDateTime) {
-          setAlarmedTasks((currentAlarmed) => {
-            // Guard against duplicate triggers
-            if (currentAlarmed.includes(task.id)) {
-              return currentAlarmed;
-            }
-
-            // Defer all intrusive side-effects so they don't lock up React's state updates
-            setTimeout(() => {
-              // 1. Play the audio sound immediately
-              if (alarmRef.current) {
-                alarmRef.current.currentTime = 0;
-                alarmRef.current.play()
-                  .then(() => console.log("Alarm playing successfully!"))
-                  .catch(err => console.error("Audio playback blocked by browser:", err));
-              }
-
-              // 2. Trigger push notification if permitted
-              if ("Notification" in window && Notification.permission === "granted") {
-                new Notification("⏰ Task Time Over!", {
-                  body: `${task.title} has reached its end time.`,
-                  tag: task.id // prevents duplicate notification panels popping up
-                });
-              }
-
-              // 3. Fallback/Complementary Alert window
-              alert(`⏰ Time is up for your task: "${task.title}"!`);
-            }, 10);
-
-            return [...currentAlarmed, task.id];
-          });
-        }
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [tasks]);
-
-  useEffect(() => {
-    if ("Notification" in window) {
-      Notification.requestPermission();
-    }
-  }, []);
 
   const deleteTask = (id) => {
     axios.delete(`${API_BASE}/tasks/${id}`).then(() => {
@@ -172,33 +169,52 @@ useEffect(() => {
     return new Date(a.date) - new Date(b.date);
   });
 
-  return view === "home" ? (
-    <Home
-      tasks={sortedTasks}
-      allTasks={tasks}
-      filterCategory={filterCategory}
-      setFilterCategory={(c) => setFilterCategory(c === filterCategory ? null : c)}
-      goAdd={() => setView("add")}
-      goDetail={() => setView("detail")}
-      alarmRef={alarmRef}
+ return (
+  <>
+    <audio
+      ref={alarmRef}
+      src="./alarm.mp3"
+      preload="auto"
+      loop
     />
-  ) : view === "add" ? (
-    <CreateTask onSave={saveTask} taskToEdit={editTask} goBack={() => { setEditTask(null); setView("home"); }} />
-  ) : (
-    <Detail
-      tasks={[...tasks].sort((a, b) => {
-        if (sortBy === "priority") return a.priority.localeCompare(b.priority);
-        if (sortBy === "title") return a.title.localeCompare(b.title);
-        return new Date(a.date) - new Date(b.date);
-      })}
-      toggleDone={toggleDone}
-      deleteTask={deleteTask}
-      onEdit={(t) => { setEditTask(t); setView("add"); }}
-      goBack={() => setView("home")}
-      sortBy={sortBy}
-      setSortBy={setSortBy}
-    />
-  );
+
+    {view === "home" ? (
+      <Home
+        tasks={sortedTasks}
+        allTasks={tasks}
+        filterCategory={filterCategory}
+        setFilterCategory={(c) =>
+          setFilterCategory(c === filterCategory ? null : c)
+        }
+        goAdd={() => setView("add")}
+        goDetail={() => setView("detail")}
+        alarmRef={alarmRef}
+      />
+    ) : view === "add" ? (
+      <CreateTask
+        onSave={saveTask}
+        taskToEdit={editTask}
+        goBack={() => {
+          setEditTask(null);
+          setView("home");
+        }}
+      />
+    ) : (
+      <Detail
+        tasks={tasks}
+        toggleDone={toggleDone}
+        deleteTask={deleteTask}
+        onEdit={(t) => {
+          setEditTask(t);
+          setView("add");
+        }}
+        goBack={() => setView("home")}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+      />
+    )}
+  </>
+);
 }
 
 function CreateTask({ onSave, taskToEdit, goBack }) {
@@ -211,25 +227,12 @@ function CreateTask({ onSave, taskToEdit, goBack }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
     if (startTime >= endTime) {
       alert("End time must be after start time");
       return;
     }
-
-    const newTask = {
-      title,
-      category,
-      date,
-      startTime,
-      endTime,
-      priority
-    };
-
-    if (taskToEdit) {
-      newTask.id = taskToEdit.id;
-    }
-
+    const newTask = { title, category, date, startTime, endTime, priority };
+    if (taskToEdit) { newTask.id = taskToEdit.id; }
     onSave(newTask);
   };
 
@@ -321,11 +324,16 @@ function Home({ tasks, allTasks, filterCategory, setFilterCategory, goAdd, goDet
     const timer = setInterval(() => {
       setTime(new Date());
     }, 1000);
-
     return () => clearInterval(timer);
   }, []);
+  <button
+  onClick={() => {
+    alarmRef.current.play();
+  }}
+>
+  Test Alarm
+</button>
 
-  // Dedicated handler to request access and unlock media pipeline
   const handleEnableNotifications = async () => {
     if (!("Notification" in window)) {
       alert("This browser does not support desktop notifications.");
@@ -335,20 +343,20 @@ function Home({ tasks, allTasks, filterCategory, setFilterCategory, goAdd, goDet
     const permission = await Notification.requestPermission();
     setNotiPermission(permission);
 
-    // Dynamic pipeline unlock: Play and immediately pause sound during this user click event
+    // Warm up and unlock the media pipeline path inside direct click event thread context
     if (alarmRef.current) {
       alarmRef.current.play()
         .then(() => {
           alarmRef.current.pause();
           alarmRef.current.currentTime = 0;
-          console.log("Audio engine primed and ready!");
+          console.log("Audio pipeline fully primed!");
         })
-        .catch(err => console.log("Audio prep deferred:", err));
+        .catch(err => console.log("Audio configuration bypassed:", err));
     }
 
     if (permission === "granted") {
       new Notification("🔔 System Connected!", {
-        body: "Alarms and alerts are now successfully active.",
+        body: "Alarms and notifications are now active.",
       });
     }
   };
@@ -366,32 +374,18 @@ function Home({ tasks, allTasks, filterCategory, setFilterCategory, goAdd, goDet
             weekday: "long",
             day: "numeric",
             month: "long",
-            year: "numeric",
-            style: { marginBottom: "5px" }
+            year: "numeric"
           })}
         </p>
 
-        {/* Notification Prompt Widget */}
+        {/* Dynamic Notification Action Block */}
         <div style={{ marginTop: "10px" }}>
           {notiPermission !== "granted" ? (
-            <button 
-              onClick={handleEnableNotifications}
-              style={{
-                backgroundColor: "#5e5bb9",
-                color: "white",
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: "20px",
-                cursor: "pointer",
-                fontSize: "0.85rem"
-              }}
-            >
+            <button onClick={handleEnableNotifications}>
               🔔 Turn On Notifications & Sound
             </button>
           ) : (
-            <span style={{ color: "#2e7d32", fontSize: "0.85rem", fontWeight: "bold" }}>
-              ✓ Notifications & Audio Active
-            </span>
+            <span>✓ Notifications & Audio Active</span>
           )}
         </div>
       </div>
