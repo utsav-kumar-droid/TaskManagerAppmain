@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import axios from "axios";
-const API_BASE = "https://taskappmanager.onrender.com";
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 // A built-in, lightweight electronic beep sound (Base64 string)
 // This eliminates the need for an external /alarm.mp3 file entirely!
