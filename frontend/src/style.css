@@ -544,6 +544,53 @@ font-size: large;
   background-color: #9d9ee8;
   border-radius: 10px;
 }
+/* ====== NOTIFICATION SYSTEM ELEMENTS ====== */
+
+/* Style for the active notification button inside the clock */
+.clock button {
+  background-color: var(--secondary);
+  color: var(--primary-dark);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 30px;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-top: 10px;
+  width: auto; /* Overrides media queries on small viewports */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.clock button:hover {
+  background-color: #ffffff;
+  color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Style for the active state text confirmation */
+.clock span {
+  display: inline-block;
+  background-color: rgba(46, 125, 50, 0.15);
+  color: #a3f7b5; /* Highly readable contrast text over dark violet theme gradients */
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  margin-top: 10px;
+  border: 1px solid rgba(46, 125, 50, 0.3);
+}
+
+/* Responsive adjustment override */
+@media (max-width: 768px) {
+  .clock button {
+    width: auto !important; /* Prevents button expanding to 100% full stretch layout */
+  }
+}
 
 @media (max-width: 768px) {
 

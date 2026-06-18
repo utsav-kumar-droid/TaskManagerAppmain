@@ -84,10 +84,17 @@ useEffect(() => {
 
   // 2. Fixed, Stable Background Timer Interval Loop
   // 2. Fixed, Stable Background Timer Interval Loop
+// 1. Check and request notification permissions on mount
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // 2. Fixed, Stable Background Timer Interval Loop
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
-      console.log("Current Time:", now.toLocaleTimeString());
 
       tasks.forEach((task) => {
         if (!task.endTime || !task.date || task.done) return;
@@ -102,38 +109,34 @@ useEffect(() => {
 
         // Check if current time has passed the end target time
         if (now >= endDateTime) {
-          // Check state condition using a local check or state reference 
-          // to prevent multiple triggers before updating state
           setAlarmedTasks((currentAlarmed) => {
+            // Guard against duplicate triggers
             if (currentAlarmed.includes(task.id)) {
-              return currentAlarmed; 
+              return currentAlarmed;
             }
 
-            // --- ALL SIDE EFFECTS OUTSIDE THE STATE UPDATER ---
-            // Trigger side effects asynchronously so they don't block React's execution context
+            // Defer all intrusive side-effects so they don't lock up React's state updates
             setTimeout(() => {
-              console.log("🔔 ALARM TRIGGERED AUTOMATICALLY FOR:", task.title);
-
-              // 1. Play audio safely
+              // 1. Play the audio sound immediately
               if (alarmRef.current) {
                 alarmRef.current.currentTime = 0;
                 alarmRef.current.play()
-                  .then(() => console.log("Background alarm playing standard tone!"))
-                  .catch(err => console.error("Audio playback blocked:", err));
+                  .then(() => console.log("Alarm playing successfully!"))
+                  .catch(err => console.error("Audio playback blocked by browser:", err));
               }
 
-              // 2. Push notification
+              // 2. Trigger push notification if permitted
               if ("Notification" in window && Notification.permission === "granted") {
                 new Notification("⏰ Task Time Over!", {
                   body: `${task.title} has reached its end time.`,
+                  tag: task.id // prevents duplicate notification panels popping up
                 });
               }
 
-              // 3. Browser alert box
-              alert(`⏰ ${task.title} time is over!`);
-            }, 0);
+              // 3. Fallback/Complementary Alert window
+              alert(`⏰ Time is up for your task: "${task.title}"!`);
+            }, 10);
 
-            // Return the updated state immediately and purely
             return [...currentAlarmed, task.id];
           });
         }
@@ -310,6 +313,9 @@ function Detail({ tasks, toggleDone, deleteTask, onEdit, goBack, sortBy, setSort
 
 function Home({ tasks, allTasks, filterCategory, setFilterCategory, goAdd, goDetail, alarmRef }) {
   const [time, setTime] = useState(new Date());
+  const [notiPermission, setNotiPermission] = useState(
+    "Notification" in window ? Notification.permission : "unsupported"
+  );
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -318,6 +324,34 @@ function Home({ tasks, allTasks, filterCategory, setFilterCategory, goAdd, goDet
 
     return () => clearInterval(timer);
   }, []);
+
+  // Dedicated handler to request access and unlock media pipeline
+  const handleEnableNotifications = async () => {
+    if (!("Notification" in window)) {
+      alert("This browser does not support desktop notifications.");
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    setNotiPermission(permission);
+
+    // Dynamic pipeline unlock: Play and immediately pause sound during this user click event
+    if (alarmRef.current) {
+      alarmRef.current.play()
+        .then(() => {
+          alarmRef.current.pause();
+          alarmRef.current.currentTime = 0;
+          console.log("Audio engine primed and ready!");
+        })
+        .catch(err => console.log("Audio prep deferred:", err));
+    }
+
+    if (permission === "granted") {
+      new Notification("🔔 System Connected!", {
+        body: "Alarms and alerts are now successfully active.",
+      });
+    }
+  };
   
   const completedCount = allTasks.filter((task) => task.done).length;
   const categories = ["Work", "Study", "Personal", "Health", "Exercise", "Creative"];
@@ -325,10 +359,7 @@ function Home({ tasks, allTasks, filterCategory, setFilterCategory, goAdd, goDet
 
   return (
     <div className="container">
-      <div className="clock">
-       {/* // Replace the old Test Alarm button in your Home component with this: */}
-
-
+      <div className="clock" style={{ textAlign: "center", padding: "10px" }}>
         <h2>{time.toLocaleTimeString()}</h2>
         <p>
           {time.toLocaleDateString("en-US", {
@@ -336,9 +367,35 @@ function Home({ tasks, allTasks, filterCategory, setFilterCategory, goAdd, goDet
             day: "numeric",
             month: "long",
             year: "numeric",
+            style: { marginBottom: "5px" }
           })}
         </p>
+
+        {/* Notification Prompt Widget */}
+        <div style={{ marginTop: "10px" }}>
+          {notiPermission !== "granted" ? (
+            <button 
+              onClick={handleEnableNotifications}
+              style={{
+                backgroundColor: "#5e5bb9",
+                color: "white",
+                border: "none",
+                padding: "6px 12px",
+                borderRadius: "20px",
+                cursor: "pointer",
+                fontSize: "0.85rem"
+              }}
+            >
+              🔔 Turn On Notifications & Sound
+            </button>
+          ) : (
+            <span style={{ color: "#2e7d32", fontSize: "0.85rem", fontWeight: "bold" }}>
+              ✓ Notifications & Audio Active
+            </span>
+          )}
+        </div>
       </div>
+
       <p className="para1">Let's check out your today's task</p>
       <div className="repobox">
         <div className="autoslider">
