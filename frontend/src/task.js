@@ -89,7 +89,12 @@ useEffect(() => {
       console.log("Current Time:", now.toLocaleTimeString());
 
       tasks.forEach((task) => {
-        const formattedTime = task.endTime.split(':').length === 2 ? `${task.endTime}:00` : task.endTime;
+        if (!task.endTime || !task.date) return;
+
+const formattedTime =
+  task.endTime.split(":").length === 2
+    ? `${task.endTime}:00`
+    : task.endTime;
         const endDateTime = new Date(`${task.date}T${formattedTime}`);
 
         if (isNaN(endDateTime.getTime())) return;
