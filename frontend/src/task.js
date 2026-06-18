@@ -19,9 +19,9 @@ function App() {
   const [alarmedTasks, setAlarmedTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  if (loading) {
-  return <h2>Loading...</h2>;
-}
+//   if (loading) {
+//   return <h2>Loading...</h2>;
+// }
   
   // Initialize with our built-in fail-safe audio track
   const alarmRef = useRef(new Audio(ALARM_SOUND_SRC));
