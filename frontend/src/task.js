@@ -83,55 +83,57 @@ useEffect(() => {
   };
 
   // 2. Fixed, Stable Background Timer Interval Loop
+  // 2. Fixed, Stable Background Timer Interval Loop
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
       console.log("Current Time:", now.toLocaleTimeString());
 
       tasks.forEach((task) => {
-        if (!task.endTime || !task.date) return;
+        if (!task.endTime || !task.date || task.done) return;
 
-const formattedTime =
-  task.endTime.split(":").length === 2
-    ? `${task.endTime}:00`
-    : task.endTime;
+        const formattedTime =
+          task.endTime.split(":").length === 2
+            ? `${task.endTime}:00`
+            : task.endTime;
         const endDateTime = new Date(`${task.date}T${formattedTime}`);
 
         if (isNaN(endDateTime.getTime())) return;
 
-        console.log("Task:", task.title, "End:", endDateTime.toLocaleTimeString());
-
         // Check if current time has passed the end target time
-        if (now >= endDateTime && !task.done) {
-          
+        if (now >= endDateTime) {
+          // Check state condition using a local check or state reference 
+          // to prevent multiple triggers before updating state
           setAlarmedTasks((currentAlarmed) => {
-            // Stop if this specific task ID has already sounded
             if (currentAlarmed.includes(task.id)) {
-              return currentAlarmed;
+              return currentAlarmed; 
             }
 
-            console.log("🔔 ALARM TRIGGERED AUTOMATICALLY FOR:", task.title);
-
-            // Play the pre-loaded audio immediately (instantaneous, no lag!)
-            if (alarmRef.current) {
-              alarmRef.current.currentTime = 0;
-              alarmRef.current.play()
-                .then(() => console.log("Background alarm playing standard tone!"))
-                .catch(err => console.error("Background play structural block:", err));
-            }
-
-            // Trigger standard browser push notification
-            if ("Notification" in window && Notification.permission === "granted") {
-              new Notification("⏰ Task Time Over!", {
-                body: `${task.title} has reached its end time.`,
-              });
-            }
-
-            // Fire structural alert safely delayed so it doesn't break the thread execution
+            // --- ALL SIDE EFFECTS OUTSIDE THE STATE UPDATER ---
+            // Trigger side effects asynchronously so they don't block React's execution context
             setTimeout(() => {
-              alert(`⏰ ${task.title} time is over!`);
-            }, 100);
+              console.log("🔔 ALARM TRIGGERED AUTOMATICALLY FOR:", task.title);
 
+              // 1. Play audio safely
+              if (alarmRef.current) {
+                alarmRef.current.currentTime = 0;
+                alarmRef.current.play()
+                  .then(() => console.log("Background alarm playing standard tone!"))
+                  .catch(err => console.error("Audio playback blocked:", err));
+              }
+
+              // 2. Push notification
+              if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("⏰ Task Time Over!", {
+                  body: `${task.title} has reached its end time.`,
+                });
+              }
+
+              // 3. Browser alert box
+              alert(`⏰ ${task.title} time is over!`);
+            }, 0);
+
+            // Return the updated state immediately and purely
             return [...currentAlarmed, task.id];
           });
         }
@@ -139,7 +141,7 @@ const formattedTime =
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [tasks]); // Keeps the background loop stable without tearing down state references
+  }, [tasks]);
 
   useEffect(() => {
     if ("Notification" in window) {
