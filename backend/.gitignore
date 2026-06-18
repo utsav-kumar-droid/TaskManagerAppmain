@@ -1,0 +1,21 @@
+# Node modules
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment variables
+.env
+
+# OS and editor system files
+.DS_Store
+Thumbs.db
+
+# IDE/editor config
+.vscode/
+.idea/
+
+# Vercel local config (if any)
+.vercel/
