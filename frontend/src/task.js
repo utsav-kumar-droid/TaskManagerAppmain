@@ -306,18 +306,7 @@ function Home({ tasks, allTasks, filterCategory, setFilterCategory, goAdd, goDet
       <div className="clock">
        {/* // Replace the old Test Alarm button in your Home component with this: */}
 
-<button
-  onClick={() => {
-    if (alarmRef.current) {
-      alarmRef.current.currentTime = 0;
-      alarmRef.current.play()
-        .then(() => console.log("🎉 Test sound executed instantly without lag!"))
-        .catch(err => console.error("Test button rejected:", err));
-    }
-  }}
->
-  Test Alarm
-</button>
+
         <h2>{time.toLocaleTimeString()}</h2>
         <p>
           {time.toLocaleDateString("en-US", {
