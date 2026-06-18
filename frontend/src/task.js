@@ -2,7 +2,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import axios from "axios";
-const API_BASE = process.env.API_BASE;
+const API_BASE = process.env.API_BASE || "https://taskappmanager.onrender.com";
+
+console.log("API_BASE:", API_BASE);
 
 // A built-in, lightweight electronic beep sound (Base64 string)
 // This eliminates the need for an external /alarm.mp3 file entirely!
@@ -16,22 +18,35 @@ function App() {
   const [sortBy, setSortBy] = useState("date");
   const [alarmedTasks, setAlarmedTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  if (loading) {
+  return <h2>Loading...</h2>;
+}
   
   // Initialize with our built-in fail-safe audio track
   const alarmRef = useRef(new Audio(ALARM_SOUND_SRC));
 
-  useEffect(() => {
-    axios
-      .get(`${API_BASE}/tasks`)
-      .then((res) => {
+useEffect(() => {
+  const fetchTasks = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/tasks`);
+
+      if (Array.isArray(res.data)) {
         setTasks(res.data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to load tasks", err);
-        setLoading(false);
-      });
-  }, []);
+      } else {
+        console.error("Invalid tasks response:", res.data);
+        setTasks([]);
+      }
+    } catch (error) {
+      console.error("Cannot connect to backend:", error);
+      setTasks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchTasks();
+}, []);
 
   // 1. Bulletproof Audio Unlocker
   useEffect(() => {
